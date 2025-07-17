@@ -1,5 +1,5 @@
 
-import { hash as argon2Hash, verify as argon2Verify } from 'argon2-browser';
+import * as argon2 from 'argon2-browser';
 
 // Crypto configuration constants
 export const CRYPTO_CONFIG = {
@@ -73,7 +73,7 @@ export async function deriveKeyFromPassword(
   salt: Uint8Array
 ): Promise<CryptoKey> {
   try {
-    const hashResult = await argon2Hash({
+    const hashResult = await argon2.hash({
       pass: password,
       salt: salt,
       time: CRYPTO_CONFIG.ARGON2_TIME,
@@ -103,7 +103,7 @@ export async function hashPasswordForStorage(
   salt: Uint8Array
 ): Promise<string> {
   try {
-    const hashResult = await argon2Hash({
+    const hashResult = await argon2.hash({
       pass: password,
       salt: salt,
       time: CRYPTO_CONFIG.ARGON2_TIME,
