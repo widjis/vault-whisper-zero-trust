@@ -1,5 +1,5 @@
-
-import * as argon2 from 'argon2-browser';
+import { argon2id } from '@noble/hashes/argon2';
+import { randomBytes } from '@noble/hashes/utils';
 
 // Crypto configuration constants
 export const CRYPTO_CONFIG = {
@@ -41,7 +41,7 @@ export interface EncryptedVaultEntry {
 
 // Utility functions
 export function generateRandomBytes(length: number): Uint8Array {
-  return crypto.getRandomValues(new Uint8Array(length));
+  return randomBytes(length);
 }
 
 export function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -73,20 +73,17 @@ export async function deriveKeyFromPassword(
   salt: Uint8Array
 ): Promise<CryptoKey> {
   try {
-    const hashResult = await argon2.hash({
-      pass: password,
-      salt: salt,
-      time: CRYPTO_CONFIG.ARGON2_TIME,
-      mem: CRYPTO_CONFIG.ARGON2_MEMORY,
-      parallelism: CRYPTO_CONFIG.ARGON2_PARALLELISM,
-      hashLen: CRYPTO_CONFIG.ARGON2_HASH_LENGTH,
-      type: 2, // Argon2id
+    const hashResult = argon2id(password, salt, {
+      t: CRYPTO_CONFIG.ARGON2_TIME,
+      m: CRYPTO_CONFIG.ARGON2_MEMORY,
+      p: CRYPTO_CONFIG.ARGON2_PARALLELISM,
+      dkLen: CRYPTO_CONFIG.ARGON2_HASH_LENGTH,
     });
 
     // Import the derived key for AES-GCM
     return await crypto.subtle.importKey(
       'raw',
-      hashResult.hash,
+      hashResult,
       { name: 'AES-GCM' },
       false,
       ['encrypt', 'decrypt']
@@ -103,17 +100,14 @@ export async function hashPasswordForStorage(
   salt: Uint8Array
 ): Promise<string> {
   try {
-    const hashResult = await argon2.hash({
-      pass: password,
-      salt: salt,
-      time: CRYPTO_CONFIG.ARGON2_TIME,
-      mem: CRYPTO_CONFIG.ARGON2_MEMORY,
-      parallelism: CRYPTO_CONFIG.ARGON2_PARALLELISM,
-      hashLen: CRYPTO_CONFIG.ARGON2_HASH_LENGTH,
-      type: 2, // Argon2id
+    const hashResult = argon2id(password, salt, {
+      t: CRYPTO_CONFIG.ARGON2_TIME,
+      m: CRYPTO_CONFIG.ARGON2_MEMORY,
+      p: CRYPTO_CONFIG.ARGON2_PARALLELISM,
+      dkLen: CRYPTO_CONFIG.ARGON2_HASH_LENGTH,
     });
 
-    return arrayBufferToBase64(hashResult.hash);
+    return arrayBufferToBase64(hashResult);
   } catch (error) {
     console.error('Password hashing failed:', error);
     throw new Error('Failed to hash password');
