@@ -51,40 +51,51 @@ const Register: React.FC = () => {
   
   // Form validation rules
   const validationRules = {
-    firstName: {
-      minLength: {
-        value: 2,
-        message: 'First name must be at least 2 characters',
-      },
+    firstName: (value: string) => {
+      if (!value || value.length < 2) {
+        return 'First name must be at least 2 characters';
+      }
+      return null;
     },
-    lastName: {
-      minLength: {
-        value: 2,
-        message: 'Last name must be at least 2 characters',
-      },
+    lastName: (value: string) => {
+      if (!value || value.length < 2) {
+        return 'Last name must be at least 2 characters';
+      }
+      return null;
     },
-    email: {
-      required: 'Email is required',
-      pattern: {
-        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-        message: 'Invalid email address',
-      },
+    email: (value: string) => {
+      if (!value) {
+        return 'Email is required';
+      }
+      const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+      if (!emailRegex.test(value)) {
+        return 'Invalid email address';
+      }
+      return null;
     },
-    password: {
-      required: 'Password is required',
-      minLength: {
-        value: 8,
-        message: 'Password must be at least 8 characters',
-      },
+    password: (value: string) => {
+      if (!value) {
+        return 'Password is required';
+      }
+      if (value.length < 8) {
+        return 'Password must be at least 8 characters';
+      }
+      return null;
     },
-    confirmPassword: {
-      required: 'Please confirm your password',
-      validate: (value: string, values: RegisterFormValues) =>
-        value === values.password || 'Passwords do not match',
+    confirmPassword: (value: string, values: RegisterFormValues) => {
+      if (!value) {
+        return 'Please confirm your password';
+      }
+      if (value !== values.password) {
+        return 'Passwords do not match';
+      }
+      return null;
     },
-    agreeToTerms: {
-      required: 'You must agree to the terms and conditions',
-      validate: (value: boolean) => value === true || 'You must agree to the terms and conditions',
+    agreeToTerms: (value: boolean) => {
+      if (!value) {
+        return 'You must agree to the terms and conditions';
+      }
+      return null;
     },
   };
 
@@ -95,7 +106,6 @@ const Register: React.FC = () => {
     touched,
     handleChange,
     handleBlur,
-    handleSubmit,
     isValid,
     setFieldValue,
   } = useForm<RegisterFormValues>(

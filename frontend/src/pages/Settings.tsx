@@ -592,6 +592,27 @@ const Settings: React.FC = () => {
           </Card>
 
           <Card variant="outlined" sx={{ mb: 3 }}>
+            <CardHeader 
+              title="Security Dashboard" 
+              action={
+                <Button 
+                  variant="outlined" 
+                  color="primary"
+                  onClick={() => navigate('/security')}
+                  startIcon={<Security />}
+                >
+                  View Dashboard
+                </Button>
+              }
+            />
+            <CardContent>
+              <Typography variant="body1">
+                Visit the Security Dashboard for a comprehensive overview of your account security status, including password health, active sessions, and security events.
+              </Typography>
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined" sx={{ mb: 3 }}>
             <CardHeader title="Two-Factor Authentication" />
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>

@@ -17,6 +17,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import VaultEntries from './pages/VaultEntries';
 import Profile from './pages/Profile';
+import SecurityDashboard from './pages/SecurityDashboard';
 import NotFound from './components/common/NotFound';
 
 // Create theme
@@ -121,6 +122,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/entries" element={<ProtectedRoute><VaultEntries /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/security" element={<ProtectedRoute><SecurityDashboard /></ProtectedRoute>} />
       
       {/* Admin routes */}
       <Route path="/admin/*" element={<AdminRoutes />} />

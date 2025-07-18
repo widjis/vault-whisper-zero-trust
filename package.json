@@ -11,7 +11,8 @@
     "test:e2e": "playwright test",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit --pretty --project tsconfig.json"
+
   },
   "dependencies": {
     "@emotion/react": "^11.11.1",
