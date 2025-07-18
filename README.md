@@ -53,6 +53,11 @@ A self-hosted, zero-knowledge password vault application built for PT Merdeka Ts
 - **Web Crypto API** for encryption
 - **argon2-browser** for key derivation
 
+### Development Dependencies
+- **TypeScript** for type safety
+- **Jest** and **React Testing Library** for testing
+- **@types/aria-query** for accessibility testing type definitions
+
 ### Backend (Planned)
 - **Node.js** with Express or NestJS
 - **PostgreSQL** for data storage

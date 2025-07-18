@@ -1,10 +1,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { VaultProvider, useVault } from '../contexts/VaultContext';
-import { apiService } from '../lib/api';
+import '@testing-library/jest-dom';
+import { VaultProvider, useVault } from '../VaultContext';
+import { apiService } from '../../lib/api';
 
 // Mock the API service
-jest.mock('../lib/api');
+jest.mock('../../lib/api');
 const mockApiService = apiService as jest.Mocked<typeof apiService>;
 
 // Test component to access vault context
@@ -29,8 +30,7 @@ const TestComponent = () => {
       <button 
         data-testid="add-entry" 
         onClick={() => addEntry({
-          id: '1',
-          title: 'Test Entry',
+          title: 'Test Entry',  // Removed 'id' as it's not in Omit<VaultEntry, "id">
           username: 'testuser',
           password: 'testpass',
           url: 'https://example.com',
@@ -66,16 +66,25 @@ describe('VaultContext', () => {
     const user = userEvent.setup();
     
     // Mock successful API responses
-    mockApiService.getSalt.mockResolvedValue({ salt: 'test-salt' });
+    mockApiService.getSalt.mockResolvedValue('test-salt'); // Fixed: returning string instead of object
     mockApiService.login.mockResolvedValue({
       token: 'test-token',
-      user: { id: '1', email: 'test@example.com' }
+      user: { 
+        id: '1', 
+        email: 'test@example.com',
+        createdAt: new Date().toISOString() // Added required createdAt property
+      }
     });
     mockApiService.getEntries.mockResolvedValue({
       entries: [],
-      total: 0,
-      page: 1,
-      limit: 50
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        totalCount: 0,
+        limit: 50,
+        hasNextPage: false,
+        hasPreviousPage: false
+      }
     });
 
     render(
@@ -99,16 +108,21 @@ describe('VaultContext', () => {
     const user = userEvent.setup();
     
     // Mock successful sign in first
-    mockApiService.getSalt.mockResolvedValue({ salt: 'test-salt' });
+    mockApiService.getSalt.mockResolvedValue('test-salt');
     mockApiService.login.mockResolvedValue({
       token: 'test-token',
-      user: { id: '1', email: 'test@example.com' }
+      user: { id: '1', email: 'test@example.com', createdAt: '2023-01-01T00:00:00Z' }
     });
     mockApiService.getEntries.mockResolvedValue({
       entries: [],
-      total: 0,
-      page: 1,
-      limit: 50
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        totalCount: 0,
+        limit: 50,
+        hasNextPage: false,
+        hasPreviousPage: false
+      }
     });
 
     render(
@@ -158,23 +172,25 @@ describe('VaultContext', () => {
     const user = userEvent.setup();
     
     // Mock successful authentication
-    mockApiService.getSalt.mockResolvedValue({ salt: 'test-salt' });
+    mockApiService.getSalt.mockResolvedValue('test-salt');
     mockApiService.login.mockResolvedValue({
       token: 'test-token',
-      user: { id: '1', email: 'test@example.com' }
+      user: { 
+        id: '1', 
+        email: 'test@example.com',
+        createdAt: new Date().toISOString()
+      }
     });
     mockApiService.getEntries.mockResolvedValue({
       entries: [],
-      total: 0,
-      page: 1,
-      limit: 50
-    });
-    mockApiService.createEntry.mockResolvedValue({
-      id: '1',
-      title: 'Test Entry',
-      encryptedData: { iv: 'test', ciphertext: 'test', tag: 'test' },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        totalCount: 0,
+        limit: 50,
+        hasNextPage: false,
+        hasPreviousPage: false
+      }
     });
 
     render(

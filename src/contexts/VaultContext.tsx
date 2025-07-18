@@ -1,6 +1,7 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { SecureStorage } from '@/lib/storage';
+// Remove default import of React and use only named imports
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { SecureStorage } from '../lib/storage';
 import { 
   generateSalt, 
   hashPasswordForStorage, 
@@ -10,9 +11,9 @@ import {
   arrayBufferToBase64,
   base64ToArrayBuffer,
   VaultEntry
-} from '@/lib/crypto';
-import { apiService } from '@/lib/api';
-import { useToast } from '@/hooks/use-toast';
+} from '../lib/crypto';
+import { apiService } from '../lib/api';
+import { useToast } from '../hooks/use-toast';
 
 interface User {
   id: string;
@@ -29,6 +30,7 @@ interface VaultContextType {
   // Vault state
   entries: VaultEntry[];
   isLoading: boolean;
+  error: string | null;
   
   // Actions
   signUp: (email: string, masterPassword: string) => Promise<void>;
@@ -66,6 +68,7 @@ export function VaultProvider({ children }: VaultProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [entries, setEntries] = useState<VaultEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Initialize from session
@@ -144,6 +147,7 @@ export function VaultProvider({ children }: VaultProviderProps) {
   const signIn = async (email: string, masterPassword: string): Promise<void> => {
     try {
       setIsLoading(true);
+      setError(null); // Clear any previous errors
 
       // First, get the user's salt
       const saltBase64 = await apiService.getSalt(email);
@@ -177,6 +181,7 @@ export function VaultProvider({ children }: VaultProviderProps) {
       });
     } catch (error) {
       console.error('Sign in failed:', error);
+      setError(error instanceof Error ? error.message : 'Sign in failed');
       throw error;
     } finally {
       setIsLoading(false);
@@ -382,6 +387,7 @@ export function VaultProvider({ children }: VaultProviderProps) {
     user,
     entries,
     isLoading,
+    error,
     signUp,
     signIn,
     signOut,

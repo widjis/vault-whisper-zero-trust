@@ -26,6 +26,9 @@ export interface VaultEntry {
   username?: string;
   password?: string;
   notes?: string;
+  category?: string;
+  favorite?: boolean;
+  tags?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -271,3 +274,16 @@ export function generatePassword(options: {
 
   return password;
 }
+
+// CryptoService class that wraps all crypto functions
+class CryptoService {
+  deriveKeyFromPassword = deriveKeyFromPassword;
+  encryptData = encryptData;
+  decryptData = decryptData;
+  encryptVaultEntry = encryptVaultEntry;
+  decryptVaultEntry = decryptVaultEntry;
+  calculatePasswordStrength = calculatePasswordStrength;
+  generatePassword = generatePassword;
+}
+
+export const cryptoService = new CryptoService();

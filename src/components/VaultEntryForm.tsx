@@ -167,24 +167,40 @@ export const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
   
   // Form validation
   const validationRules = useMemo(() => ({
-    title: [validators.required('Title is required')],
-    username: [],
-    password: [validators.required('Password is required')],
-    url: [validators.url('Please enter a valid URL')],
-    notes: [],
+    title: (value: string) => {
+      const result = validators.required('Title is required').validate(value);
+      return result.success ? null : result.error.message;
+    },
+    username: () => null, // No validation for username
+    password: (value: string) => {
+      const result = validators.required('Password is required').validate(value);
+      return result.success ? null : result.error.message;
+    },
+    url: (value: string) => {
+      if (!value) return null; // URL is optional
+      const result = validators.url('Please enter a valid URL').validate(value);
+      return result.success ? null : result.error.message;
+    },
+    notes: () => null, // No validation for notes
+    tags: () => null, // No validation for tags
+    favorite: () => null, // No validation for favorite
   }), []);
   
   const {
+    values,
     errors,
-    validateField,
-    validateForm,
-    clearErrors,
+    touched,
+    isValid,
+    setValue,
+    setFieldTouched,
+    validateAll,
+    reset,
   } = useFormValidation(formData, validationRules);
   
   // Password strength
   const passwordStrength = useMemo(() => 
-    calculatePasswordStrength(formData.password), 
-    [formData.password]
+    calculatePasswordStrength(values.password), 
+    [values.password]
   );
   
   // Handlers
@@ -195,90 +211,88 @@ export const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
       ? event.target.checked 
       : event.target.value;
     
-    setFormData(prev => ({ ...prev, [field]: value }));
-    clearErrors(field);
+    setValue(field, value);
     setSaveError(null);
-  }, [clearErrors]);
+  }, [setValue]);
   
   const handleAddTag = useCallback(() => {
-    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        tags: [...prev.tags, newTag.trim()],
-      }));
+    if (newTag.trim() && !values.tags.includes(newTag.trim())) {
+      setValue('tags', [...values.tags, newTag.trim()]);
       setNewTag('');
     }
-  }, [newTag, formData.tags]);
+  }, [newTag, values.tags, setValue]);
   
   const handleRemoveTag = useCallback((tagToRemove: string) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove),
-    }));
-  }, []);
+    setValue('tags', values.tags.filter(tag => tag !== tagToRemove));
+  }, [values.tags, setValue]);
   
   const handleGeneratePassword = useCallback(() => {
     const newPassword = generatePassword();
-    setFormData(prev => ({ ...prev, password: newPassword }));
-    clearErrors('password');
-  }, [clearErrors]);
+    setValue('password', newPassword);
+  }, [setValue]);
   
   const handleCopyPassword = useCallback(async () => {
-    if (formData.password) {
+    if (values.password) {
       try {
-        await navigator.clipboard.writeText(formData.password);
+        await navigator.clipboard.writeText(values.password);
         // Could show a toast notification here
-      } catch (error) {
-        console.error('Failed to copy password:', error);
+      } catch (error: unknown) {
+        // Handle error with proper type checking
+        if (typeof error === 'object' && error !== null && 'message' in error) {
+          console.error('Failed to copy password:', (error as { message: string }).message);
+        } else {
+          console.error('Failed to copy password:', String(error));
+        }
       }
     }
-  }, [formData.password]);
+  }, [values.password]);
   
   const handleSubmit = useCallback(async () => {
     try {
       setSaveError(null);
       
       // Validate form
-      const validationErrors = validateForm();
-      if (Object.keys(validationErrors).length > 0) {
+      const isFormValid = validateAll();
+      if (!isFormValid) {
         return;
       }
       
       // Save entry
-      await onSave(formData);
+      await onSave(values);
       
       // Reset form and close
-      setFormData(initialFormData);
+      reset();
       onClose();
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save entry');
+    } catch (error: unknown) {
+      // Handle error with proper type checking
+      if (typeof error === 'object' && error !== null && 'message' in error) {
+        setSaveError((error as { message: string }).message);
+      } else {
+        setSaveError('Failed to save entry');
+      }
     }
-  }, [formData, validateForm, onSave, onClose]);
+  }, [values, validateAll, onSave, onClose, reset]);
   
   const handleClose = useCallback(() => {
-    setFormData(initialFormData);
-    clearErrors();
+    reset();
     setSaveError(null);
     onClose();
-  }, [clearErrors, onClose]);
+  }, [reset, onClose]);
   
   // Auto-fill URL favicon and title
   const handleUrlBlur = useCallback(async () => {
-    if (formData.url && !formData.title) {
+    if (values.url && !values.title) {
       try {
-        const url = new URL(formData.url);
+        const url = new URL(values.url);
         const domain = url.hostname.replace('www.', '');
         const suggestedTitle = domain.split('.')[0];
         
-        setFormData(prev => ({
-          ...prev,
-          title: suggestedTitle.charAt(0).toUpperCase() + suggestedTitle.slice(1),
-        }));
+        setValue('title', suggestedTitle.charAt(0).toUpperCase() + suggestedTitle.slice(1));
       } catch {
         // Invalid URL, ignore
       }
     }
-  }, [formData.url, formData.title]);
+  }, [values.url, values.title, setValue]);
   
   return (
     <Dialog
@@ -316,7 +330,7 @@ export const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField
                 label="Title"
-                value={formData.title}
+                value={values.title}
                 onChange={handleInputChange('title')}
                 error={Boolean(errors.title)}
                 helperText={errors.title}
@@ -327,7 +341,7 @@ export const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
               
               <TextField
                 label="Website URL"
-                value={formData.url}
+                value={values.url}
                 onChange={handleInputChange('url')}
                 onBlur={handleUrlBlur}
                 error={Boolean(errors.url)}
@@ -339,7 +353,7 @@ export const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
               
               <TextField
                 label="Username/Email"
-                value={formData.username}
+                value={values.username}
                 onChange={handleInputChange('username')}
                 error={Boolean(errors.username)}
                 helperText={errors.username}
@@ -360,7 +374,7 @@ export const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
             <TextField
               label="Password"
               type={showPassword ? 'text' : 'password'}
-              value={formData.password}
+              value={values.password}
               onChange={handleInputChange('password')}
               error={Boolean(errors.password)}
               helperText={errors.password}
@@ -373,7 +387,7 @@ export const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
                     <Tooltip title="Copy password">
                       <IconButton
                         onClick={handleCopyPassword}
-                        disabled={!formData.password}
+                        disabled={!values.password}
                         size="small"
                       >
                         <ContentCopy />
@@ -402,7 +416,7 @@ export const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
             />
             
             {/* Password Strength Indicator */}
-            {formData.password && (
+            {values.password && (
               <Box sx={{ mt: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">
@@ -455,7 +469,7 @@ export const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField
                 label="Notes"
-                value={formData.notes}
+                value={values.notes}
                 onChange={handleInputChange('notes')}
                 multiline
                 rows={3}
@@ -468,7 +482,7 @@ export const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
               <FormControl>
                 <FormLabel>Tags</FormLabel>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
-                  {formData.tags.map((tag) => (
+                  {values.tags.map((tag) => (
                     <Chip
                       key={tag}
                       label={tag}
@@ -508,7 +522,7 @@ export const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
               <FormControlLabel
                 control={
                   <Switch
-                    checked={formData.favorite}
+                    checked={values.favorite}
                     onChange={handleInputChange('favorite')}
                     disabled={loading}
                   />

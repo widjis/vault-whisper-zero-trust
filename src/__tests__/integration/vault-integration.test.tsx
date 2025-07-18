@@ -1,9 +1,10 @@
+import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { VaultProvider } from '../../contexts/VaultContext';
-import { VaultEntryCard } from '../VaultEntryCard';
-import { VaultEntryForm } from '../VaultEntryForm';
+import { VaultProvider, useVault } from '../../contexts/VaultContext';
+import { VaultEntryCard } from '../../components/VaultEntryCard';
+import { VaultEntryForm } from '../../components/VaultEntryForm';
 import { apiService } from '../../lib/api';
 import { cryptoService } from '../../lib/crypto';
 
@@ -48,8 +49,13 @@ const mockEntry = {
 
 const mockEncryptedEntry = {
   id: 'entry-1',
+  userId: 'user-1',
   title: 'Test Entry',
-  encryptedData: 'encrypted-data-string',
+  encryptedData: {
+    iv: 'test-iv',
+    ciphertext: 'test-ciphertext',
+    tag: 'test-tag'
+  },
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -60,8 +66,17 @@ describe('Vault Integration Tests', () => {
     localStorage.clear();
     
     // Setup default mocks
-    mockCryptoService.generateKeyFromPassword.mockResolvedValue(new Uint8Array(32));
-    mockCryptoService.encryptData.mockResolvedValue('encrypted-data');
+    mockCryptoService.deriveKeyFromPassword.mockResolvedValue({
+      type: 'secret',
+      extractable: false,
+      algorithm: { name: 'AES-GCM' },
+      usages: ['encrypt', 'decrypt']
+    } as CryptoKey);
+    mockCryptoService.encryptData.mockResolvedValue({
+      iv: 'test-iv',
+      ciphertext: 'test-ciphertext',
+      tag: 'test-tag'
+    });
     mockCryptoService.decryptData.mockResolvedValue(JSON.stringify({
       username: mockEntry.username,
       password: mockEntry.password,
@@ -71,14 +86,21 @@ describe('Vault Integration Tests', () => {
       favorite: mockEntry.favorite,
     }));
     
-    mockApiService.signIn.mockResolvedValue({
+    mockApiService.login.mockResolvedValue({
       user: mockUser,
       token: 'test-token',
     });
     
     mockApiService.getEntries.mockResolvedValue({
       entries: [mockEncryptedEntry],
-      total: 1,
+      pagination: {
+        currentPage: 1,
+        totalPages: 1,
+        totalCount: 1,
+        limit: 10,
+        hasNextPage: false,
+        hasPreviousPage: false
+      }
     });
     
     mockApiService.createEntry.mockResolvedValue(mockEncryptedEntry);
@@ -215,7 +237,7 @@ describe('Vault Integration Tests', () => {
       const user = userEvent.setup();
       
       // Mock API error
-      mockApiService.signIn.mockRejectedValue(new Error('Invalid credentials'));
+      mockApiService.login.mockRejectedValue(new Error('Invalid credentials'));
       
       const ErrorTestComponent = () => {
         const { signIn, error } = useVault();
@@ -287,15 +309,22 @@ describe('Vault Integration Tests', () => {
       
       mockApiService.getEntries.mockResolvedValue({
         entries: largeEntrySet,
-        total: 1000,
+        pagination: {
+          currentPage: 1,
+          totalPages: 20,
+          totalCount: 1000,
+          limit: 50,
+          hasNextPage: true,
+          hasPreviousPage: false
+        }
       });
       
       const PerformanceTestComponent = () => {
-        const { entries, loading } = useVault();
+        const { entries, isLoading } = useVault();
         
         return (
           <div>
-            <div data-testid="loading">{loading ? 'Loading...' : 'Loaded'}</div>
+            <div data-testid="loading">{isLoading ? 'Loading...' : 'Loaded'}</div>
             <div data-testid="entry-count">{entries.length} entries</div>
           </div>
         );
@@ -411,11 +440,11 @@ describe('Vault Integration Tests', () => {
       mockApiService.getEntries.mockRejectedValue(new Error('Network error'));
       
       const OfflineTestComponent = () => {
-        const { entries, error, loading } = useVault();
+        const { entries, error, isLoading } = useVault();
         
         return (
           <div>
-            <div data-testid="loading-state">{loading ? 'Loading' : 'Not Loading'}</div>
+            <div data-testid="loading-state">{isLoading ? 'Loading' : 'Not Loading'}</div>
             <div data-testid="error-state">{error || 'No Error'}</div>
             <div data-testid="entries-state">{entries.length} entries</div>
           </div>

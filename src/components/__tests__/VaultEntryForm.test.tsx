@@ -287,7 +287,7 @@ describe('VaultEntryForm', () => {
 
       // Find and click the delete button for the work tag
       const workChip = workTag.closest('[role="button"]');
-      const deleteButton = within(workChip!).getByTestId('CancelIcon');
+      const deleteButton = within(workChip as HTMLElement).getByTestId('CancelIcon');
       await user.click(deleteButton);
 
       expect(screen.queryByText('work')).not.toBeInTheDocument();

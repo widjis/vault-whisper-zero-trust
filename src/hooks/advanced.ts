@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { useAppStore } from '../store';
 
 // Advanced debounce hook with cleanup
@@ -276,7 +276,7 @@ export function useFormValidation<T extends Record<string, any>>(
     }
   }, [touched, validateField]);
   
-  const setTouched = useCallback((name: keyof T) => {
+  const setFieldTouched = useCallback((name: keyof T) => {
     setTouched(prev => ({ ...prev, [name]: true }));
     
     // Validate when field is touched
@@ -321,7 +321,7 @@ export function useFormValidation<T extends Record<string, any>>(
     touched,
     isValid,
     setValue,
-    setTouched,
+    setFieldTouched,
     validateAll,
     reset
   };

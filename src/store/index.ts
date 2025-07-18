@@ -137,11 +137,12 @@ export const useAppStore = create<AppStore>()(
                 const { hashPasswordForStorage, base64ToArrayBuffer } = await import('../lib/crypto');
                 
                 // Get user salt
-                const saltResponse = await apiService.getSalt(email);
-                const salt = base64ToArrayBuffer(saltResponse);
+                const salt = await apiService.getSalt(email);
+                const saltBuffer = base64ToArrayBuffer(salt);
+                const saltArray = new Uint8Array(saltBuffer);
                 
                 // Hash password with salt
-                const passwordHash = await hashPasswordForStorage(password, salt);
+                const passwordHash = await hashPasswordForStorage(password, saltArray);
                 
                 // Login
                 const loginResponse = await apiService.login(email, passwordHash);
@@ -208,7 +209,7 @@ export const useAppStore = create<AppStore>()(
                 
                 set((state) => {
                   state.entries = response.entries;
-                  state.pagination.total = response.total;
+                  state.pagination.total = response.pagination.totalCount;
                 });
               } finally {
                 set((state) => {

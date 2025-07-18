@@ -336,7 +336,7 @@ Analytics.track('entry_created', {
 
 1. **Install Dependencies**
    ```bash
-   npm install --save-dev @types/estree @testing-library/jest-dom @testing-library/react @testing-library/user-event playwright
+   npm install --save-dev @types/estree @testing-library/jest-dom @testing-library/react @testing-library/user-event playwright @types/aria-query
    ```
 
 2. **Run Tests**
