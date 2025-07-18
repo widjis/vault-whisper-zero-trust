@@ -1,19 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
 import { prisma } from '../index';
+import { validateSession, getSessionInfoFromRequest } from '../utils/sessionManager';
+import { logSecurityEvent } from '../utils/auditLogger';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
     email: string;
+    sessionId: string;
   };
 }
 
 export interface JWTPayload {
   userId: string;
+  sessionId: string;
   email: string;
-  iat: number;
-  exp: number;
+  iat?: number;
+  exp?: number;
 }
 
 export const authenticateToken = async (
@@ -22,8 +25,15 @@ export const authenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    // Get token from Authorization header or cookies
+    let token: string | undefined;
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1]; // Bearer TOKEN
+    } else if (req.cookies && req.cookies.access_token) {
+      token = req.cookies.access_token;
+    }
 
     if (!token) {
       res.status(401).json({
@@ -33,21 +43,29 @@ export const authenticateToken = async (
           message: 'Access token is required',
         },
       });
+      await logSecurityEvent(req, 'invalid-token', undefined, { reason: 'missing_token' }, false);
       return;
     }
 
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
-      throw new Error('JWT_SECRET is not configured');
+    // Validate session using the token
+    const payload = await validateSession(token);
+    
+    if (!payload) {
+      res.status(401).json({
+        success: false,
+        error: {
+          code: 'INVALID_TOKEN',
+          message: 'Invalid or expired token',
+        },
+      });
+      await logSecurityEvent(req, 'invalid-token', undefined, { reason: 'invalid_or_expired' }, false);
+      return;
     }
-
-    // Verify the token
-    const decoded = jwt.verify(token, jwtSecret) as JWTPayload;
 
     // Check if user still exists
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: { id: true, email: true },
+      where: { id: payload.userId },
+      select: { id: true, email: true, isVerified: true },
     });
 
     if (!user) {
@@ -58,6 +76,20 @@ export const authenticateToken = async (
           message: 'User associated with this token no longer exists',
         },
       });
+      await logSecurityEvent(req, 'invalid-token', payload.userId, { reason: 'user_not_found' }, false);
+      return;
+    }
+    
+    // Optionally check if user is verified (for routes that require verification)
+    if (req.path !== '/api/auth/verify-email' && req.originalUrl.includes('/api/secure/') && !user.isVerified) {
+      res.status(403).json({
+        success: false,
+        error: {
+          code: 'EMAIL_NOT_VERIFIED',
+          message: 'Email verification required to access this resource',
+        },
+      });
+      await logSecurityEvent(req, 'permission-denied', user.id, { reason: 'email_not_verified' }, false);
       return;
     }
 
@@ -65,21 +97,11 @@ export const authenticateToken = async (
     req.user = {
       id: user.id,
       email: user.email,
+      sessionId: payload.sessionId
     };
 
     next();
   } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
-      res.status(401).json({
-        success: false,
-        error: {
-          code: 'INVALID_TOKEN',
-          message: 'Invalid or expired token',
-        },
-      });
-      return;
-    }
-
     console.error('Authentication error:', error);
     res.status(500).json({
       success: false,
@@ -88,27 +110,12 @@ export const authenticateToken = async (
         message: 'Internal server error during authentication',
       },
     });
+    await logSecurityEvent(req, 'invalid-token', undefined, { reason: 'internal_error', error: String(error) }, false);
   }
 };
 
+// This function is now deprecated in favor of sessionManager.createSession
 export const generateToken = (userId: string, email: string): string => {
-  const jwtSecret = process.env.JWT_SECRET;
-  if (!jwtSecret) {
-    throw new Error('JWT_SECRET is not configured');
-  }
+  throw new Error('This function is deprecated. Use sessionManager.createSession instead.');
 
-  const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
-
-  return jwt.sign(
-    {
-      userId,
-      email,
-    },
-    jwtSecret,
-    {
-      expiresIn: expiresIn,
-      issuer: 'securevault-api',
-      audience: 'securevault-client',
-    } as jwt.SignOptions
-  );
 };

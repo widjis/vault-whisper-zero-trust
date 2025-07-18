@@ -12,6 +12,8 @@ import {
   ListEntriesQuery,
 } from '../schemas/entries';
 import { createApiError } from '../middleware/errorHandler';
+import { logDataEvent } from '../utils/auditLogger';
+import { getSessionInfoFromRequest } from '../utils/sessionManager';
 
 const router = Router();
 
@@ -25,6 +27,19 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
     const query: ListEntriesQuery = listEntriesQuerySchema.parse(req.query);
     const { page, limit, search } = query;
     const userId = req.user!.id;
+    const sessionInfo = getSessionInfoFromRequest(req);
+
+    // Log the data access event
+    await logDataEvent({
+      userId,
+      action: 'LIST',
+      resourceType: 'VAULT_ENTRY',
+      resourceId: null,
+      metadata: { search: search || null },
+      sessionId: sessionInfo?.sessionId,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null,
+    });
 
     // Calculate pagination
     const skip = (page - 1) * limit;
@@ -44,11 +59,14 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
 
     // Get entries with pagination
     const [entries, totalCount] = await Promise.all([
-      prisma.entry.findMany({
+      prisma.vaultEntry.findMany({
         where: whereClause,
         select: {
           id: true,
           title: true,
+          category: true,
+          favorite: true,
+          tags: true,
           iv: true,
           ciphertext: true,
           tag: true,
@@ -61,7 +79,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
         skip,
         take: limit,
       }),
-      prisma.entry.count({
+      prisma.vaultEntry.count({
         where: whereClause,
       }),
     ]);
@@ -70,6 +88,9 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
     const formattedEntries = entries.map((entry: {
       id: string;
       title: string;
+      category: string;
+      favorite: boolean;
+      tags: string[];
       iv: Buffer;
       ciphertext: Buffer;
       tag: Buffer;
@@ -78,6 +99,9 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
     }) => ({
       id: entry.id,
       title: entry.title,
+      category: entry.category,
+      favorite: entry.favorite,
+      tags: entry.tags || [],
       encryptedData: {
         iv: entry.iv.toString('base64'),
         ciphertext: entry.ciphertext.toString('base64'),
@@ -118,9 +142,10 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
     const params: EntryIdParams = entryIdSchema.parse(req.params);
     const { id } = params;
     const userId = req.user!.id;
+    const sessionInfo = getSessionInfoFromRequest(req);
 
     // Find entry
-    const entry = await prisma.entry.findFirst({
+    const entry = await prisma.vaultEntry.findFirst({
       where: {
         id,
         userId,
@@ -128,6 +153,9 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
       select: {
         id: true,
         title: true,
+        category: true,
+        favorite: true,
+        tags: true,
         iv: true,
         ciphertext: true,
         tag: true,
@@ -137,6 +165,19 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
     });
 
     if (!entry) {
+      // Log failed access attempt
+      await logDataEvent({
+        userId,
+        action: 'READ',
+        resourceType: 'VAULT_ENTRY',
+        resourceId: id,
+        status: 'FAILED',
+        metadata: { reason: 'NOT_FOUND' },
+        sessionId: sessionInfo?.sessionId,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'] || null,
+      });
+
       res.status(404).json({
         success: false,
         error: {
@@ -147,10 +188,24 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
       return;
     }
 
+    // Log successful access
+    await logDataEvent({
+      userId,
+      action: 'READ',
+      resourceType: 'VAULT_ENTRY',
+      resourceId: id,
+      sessionId: sessionInfo?.sessionId,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null,
+    });
+
     // Format response
     const formattedEntry = {
       id: entry.id,
       title: entry.title,
+      category: entry.category,
+      favorite: entry.favorite,
+      tags: entry.tags || [],
       encryptedData: {
         iv: entry.iv.toString('base64'),
         ciphertext: entry.ciphertext.toString('base64'),
@@ -176,8 +231,9 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
   try {
     // Validate request body
     const validatedData: CreateEntryRequest = createEntrySchema.parse(req.body);
-    const { title, encryptedData } = validatedData;
+    const { title, category, favorite, tags, encryptedData } = validatedData;
     const userId = req.user!.id;
+    const sessionInfo = getSessionInfoFromRequest(req);
 
     // Convert base64 to binary
     const ivBuffer = Buffer.from(encryptedData.iv, 'base64');
@@ -185,10 +241,13 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
     const tagBuffer = Buffer.from(encryptedData.tag, 'base64');
 
     // Create entry
-    const entry = await prisma.entry.create({
+    const entry = await prisma.vaultEntry.create({
       data: {
         userId,
         title,
+        category: category || 'OTHER',
+        favorite: favorite || false,
+        tags: tags || [],
         iv: ivBuffer,
         ciphertext: ciphertextBuffer,
         tag: tagBuffer,
@@ -196,6 +255,9 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
       select: {
         id: true,
         title: true,
+        category: true,
+        favorite: true,
+        tags: true,
         iv: true,
         ciphertext: true,
         tag: true,
@@ -204,10 +266,25 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
       },
     });
 
+    // Log the creation event
+    await logDataEvent({
+      userId,
+      action: 'CREATE',
+      resourceType: 'VAULT_ENTRY',
+      resourceId: entry.id,
+      metadata: { title: entry.title, category: entry.category },
+      sessionId: sessionInfo?.sessionId,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null,
+    });
+
     // Format response
     const formattedEntry = {
       id: entry.id,
       title: entry.title,
+      category: entry.category,
+      favorite: entry.favorite,
+      tags: entry.tags || [],
       encryptedData: {
         iv: entry.iv.toString('base64'),
         ciphertext: entry.ciphertext.toString('base64'),
@@ -235,11 +312,12 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
     const params: EntryIdParams = entryIdSchema.parse(req.params);
     const validatedData: UpdateEntryRequest = updateEntrySchema.parse(req.body);
     const { id } = params;
-    const { title, encryptedData } = validatedData;
+    const { title, category, favorite, tags, encryptedData } = validatedData;
     const userId = req.user!.id;
+    const sessionInfo = getSessionInfoFromRequest(req);
 
     // Check if entry exists and belongs to user
-    const existingEntry = await prisma.entry.findFirst({
+    const existingEntry = await prisma.vaultEntry.findFirst({
       where: {
         id,
         userId,
@@ -247,6 +325,19 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
     });
 
     if (!existingEntry) {
+      // Log failed update attempt
+      await logDataEvent({
+        userId,
+        action: 'UPDATE',
+        resourceType: 'VAULT_ENTRY',
+        resourceId: id,
+        status: 'FAILED',
+        metadata: { reason: 'NOT_FOUND' },
+        sessionId: sessionInfo?.sessionId,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'] || null,
+      });
+
       res.status(404).json({
         success: false,
         error: {
@@ -264,6 +355,18 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
       updateData.title = title;
     }
     
+    if (category !== undefined) {
+      updateData.category = category;
+    }
+    
+    if (favorite !== undefined) {
+      updateData.favorite = favorite;
+    }
+    
+    if (tags !== undefined) {
+      updateData.tags = tags;
+    }
+    
     if (encryptedData) {
       updateData.iv = Buffer.from(encryptedData.iv, 'base64');
       updateData.ciphertext = Buffer.from(encryptedData.ciphertext, 'base64');
@@ -271,12 +374,15 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
     }
 
     // Update entry
-    const entry = await prisma.entry.update({
+    const entry = await prisma.vaultEntry.update({
       where: { id },
       data: updateData,
       select: {
         id: true,
         title: true,
+        category: true,
+        favorite: true,
+        tags: true,
         iv: true,
         ciphertext: true,
         tag: true,
@@ -285,10 +391,25 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
       },
     });
 
+    // Log the update event
+    await logDataEvent({
+      userId,
+      action: 'UPDATE',
+      resourceType: 'VAULT_ENTRY',
+      resourceId: id,
+      metadata: { title: entry.title, category: entry.category },
+      sessionId: sessionInfo?.sessionId,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null,
+    });
+
     // Format response
     const formattedEntry = {
       id: entry.id,
       title: entry.title,
+      category: entry.category,
+      favorite: entry.favorite,
+      tags: entry.tags || [],
       encryptedData: {
         iv: entry.iv.toString('base64'),
         ciphertext: entry.ciphertext.toString('base64'),
@@ -316,16 +437,35 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<
     const params: EntryIdParams = entryIdSchema.parse(req.params);
     const { id } = params;
     const userId = req.user!.id;
+    const sessionInfo = getSessionInfoFromRequest(req);
 
     // Check if entry exists and belongs to user
-    const existingEntry = await prisma.entry.findFirst({
+    const existingEntry = await prisma.vaultEntry.findFirst({
       where: {
         id,
         userId,
       },
+      select: {
+        id: true,
+        title: true,
+        category: true,
+      },
     });
 
     if (!existingEntry) {
+      // Log failed delete attempt
+      await logDataEvent({
+        userId,
+        action: 'DELETE',
+        resourceType: 'VAULT_ENTRY',
+        resourceId: id,
+        status: 'FAILED',
+        metadata: { reason: 'NOT_FOUND' },
+        sessionId: sessionInfo?.sessionId,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'] || null,
+      });
+
       res.status(404).json({
         success: false,
         error: {
@@ -337,8 +477,20 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<
     }
 
     // Delete entry
-    await prisma.entry.delete({
+    await prisma.vaultEntry.delete({
       where: { id },
+    });
+
+    // Log the deletion event
+    await logDataEvent({
+      userId,
+      action: 'DELETE',
+      resourceType: 'VAULT_ENTRY',
+      resourceId: id,
+      metadata: { title: existingEntry.title, category: existingEntry.category },
+      sessionId: sessionInfo?.sessionId,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null,
     });
 
     res.status(200).json({

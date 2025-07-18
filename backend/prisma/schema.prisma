@@ -8,26 +8,121 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid()) @db.Uuid
-  email     String   @unique
-  pwHash    String   @map("pw_hash")
-  salt      Bytes
-  createdAt DateTime @default(now()) @map("created_at")
-  entries   Entry[]
+  id                String              @id @default(uuid()) @db.Uuid
+  email             String              @unique
+  pwHash            String              @map("pw_hash")
+  salt              Bytes
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @default(now()) @updatedAt @map("updated_at")
+  lastLogin         DateTime?           @map("last_login")
+  loginAttempts     Int                 @default(0) @map("login_attempts")
+  lockedUntil       DateTime?           @map("locked_until")
+  emailVerified     Boolean             @default(false) @map("email_verified")
+  twoFactorEnabled  Boolean             @default(false) @map("two_factor_enabled")
+  twoFactorSecret   String?             @map("two_factor_secret")
+  backupCodes       String[]            @map("backup_codes") @default([])
+  entries           VaultEntry[]
+  sessions          UserSession[]
+  passwordResets    PasswordResetToken[]
+  emailVerifications EmailVerificationToken[]
+  auditLogs         AuditLog[]
 
+  @@index([email], name: "idx_users_email")
+  @@index([createdAt], name: "idx_users_created_at")
+  @@index([lastLogin], name: "idx_users_last_login")
   @@map("users")
 }
 
-model Entry {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @map("user_id") @db.Uuid
-  title      String
-  iv         Bytes
-  ciphertext Bytes
-  tag        Bytes
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model VaultEntry {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  title        String
+  encryptedData Json      @map("encrypted_data")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+  accessedAt   DateTime? @map("accessed_at")
+  accessCount  Int       @default(0) @map("access_count")
+  tags         String[]  @default([])
+  category     String?
+  favorite     Boolean   @default(false)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("entries")
+  @@index([userId], name: "idx_vault_entries_user_id")
+  @@index([createdAt], name: "idx_vault_entries_created_at")
+  @@index([updatedAt], name: "idx_vault_entries_updated_at")
+  @@index([title], name: "idx_vault_entries_title")
+  @@index([category], name: "idx_vault_entries_category")
+  @@index([favorite], name: "idx_vault_entries_favorite")
+  @@map("vault_entries")
+}
+
+model UserSession {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  tokenHash          String    @map("token_hash")
+  refreshTokenHash   String?   @map("refresh_token_hash")
+  expiresAt          DateTime  @map("expires_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  lastUsed           DateTime  @default(now()) @map("last_used")
+  ipAddress          String?   @map("ip_address")
+  userAgent          String?   @map("user_agent")
+  deviceFingerprint  String?   @map("device_fingerprint")
+  revoked            Boolean   @default(false)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_user_sessions_user_id")
+  @@index([tokenHash], name: "idx_user_sessions_token_hash")
+  @@index([expiresAt], name: "idx_user_sessions_expires_at")
+  @@index([revoked], name: "idx_user_sessions_revoked")
+  @@map("user_sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  used      Boolean   @default(false)
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_password_reset_tokens_user_id")
+  @@index([tokenHash], name: "idx_password_reset_tokens_hash")
+  @@index([expiresAt], name: "idx_password_reset_tokens_expires")
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  used      Boolean   @default(false)
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_email_verification_tokens_user_id")
+  @@index([tokenHash], name: "idx_email_verification_tokens_hash")
+  @@map("email_verification_tokens")
+}
+
+model AuditLog {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String?   @map("user_id") @db.Uuid
+  action       String
+  resourceType String?   @map("resource_type")
+  resourceId   String?   @map("resource_id") @db.Uuid
+  details      Json?
+  ipAddress    String?   @map("ip_address")
+  userAgent    String?   @map("user_agent")
+  success      Boolean
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId], name: "idx_audit_logs_user_id")
+  @@index([action], name: "idx_audit_logs_action")
+  @@index([createdAt], name: "idx_audit_logs_created_at")
+  @@index([resourceType, resourceId], name: "idx_audit_logs_resource")
+  @@map("audit_logs")
 }
