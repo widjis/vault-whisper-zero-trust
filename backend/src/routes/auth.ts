@@ -7,6 +7,52 @@ import { createApiError } from '../middleware/errorHandler';
 
 const router = Router();
 
+// Get salt for user (for client-side password hashing)
+router.post('/salt', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!email || typeof email !== 'string') {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_EMAIL',
+          message: 'Valid email is required',
+        },
+      });
+      return;
+    }
+
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() },
+      select: {
+        salt: true,
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found',
+        },
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        salt: user.salt.toString('base64'),
+      },
+    });
+  } catch (error) {
+    throw error;
+  }
+});
+
 // Register new user
 router.post('/register', async (req: Request, res: Response): Promise<void> => {
   try {

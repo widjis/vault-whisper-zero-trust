@@ -1,18 +1,17 @@
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { SecureStorage } from '@/lib/storage';
 import { 
-  deriveKeyFromPassword, 
   generateSalt, 
-  hashPasswordForStorage,
-  verifyPassword,
-  VaultEntry,
-  EncryptedVaultEntry,
-  encryptVaultEntry,
+  hashPasswordForStorage, 
+  deriveKeyFromPassword, 
+  encryptVaultEntry, 
   decryptVaultEntry,
   arrayBufferToBase64,
-  base64ToArrayBuffer
+  base64ToArrayBuffer,
+  VaultEntry
 } from '@/lib/crypto';
+import { apiService } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 interface User {
@@ -54,10 +53,6 @@ export function useVault() {
   }
   return context;
 }
-
-// Mock API functions (replace with actual API calls)
-const mockUsers: Array<User & { passwordHash: string }> = [];
-const mockEntries: EncryptedVaultEntry[] = [];
 
 let currentEncryptionKey: CryptoKey | null = null;
 
@@ -107,28 +102,32 @@ export function VaultProvider({ children }: VaultProviderProps) {
     try {
       setIsLoading(true);
 
-      // Check if user already exists
-      const existingUser = mockUsers.find(u => u.email === email);
-      if (existingUser) {
-        throw new Error('User already exists');
-      }
-
       // Generate salt and hash password
       const salt = generateSalt();
       const passwordHash = await hashPasswordForStorage(masterPassword, salt);
 
-      // Create user
-      const newUser: User & { passwordHash: string } = {
-        id: crypto.randomUUID(),
+      // Register with API
+      const response = await apiService.register(
         email,
-        salt: arrayBufferToBase64(salt),
         passwordHash,
-      };
+        arrayBufferToBase64(salt)
+      );
 
-      mockUsers.push(newUser);
+      // Set authenticated state
+      setIsAuthenticated(true);
+      setUser({
+        id: response.user.id,
+        email: response.user.email,
+        salt: response.user.salt || arrayBufferToBase64(salt),
+      });
 
-      // Auto sign in
-      await signIn(email, masterPassword);
+      // Store session
+      SecureStorage.setSession({
+        userId: response.user.id,
+        email: response.user.email,
+        isUnlocked: false,
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
+      });
 
       toast({
         title: "Account created",
@@ -146,32 +145,28 @@ export function VaultProvider({ children }: VaultProviderProps) {
     try {
       setIsLoading(true);
 
-      // Find user
-      const userRecord = mockUsers.find(u => u.email === email);
-      if (!userRecord) {
-        throw new Error('Invalid credentials');
-      }
+      // First, get the user's salt
+      const saltBase64 = await apiService.getSalt(email);
+      const salt = base64ToArrayBuffer(saltBase64);
 
-      // Verify password
-      const salt = base64ToArrayBuffer(userRecord.salt);
-      const isValid = await verifyPassword(masterPassword, new Uint8Array(salt), userRecord.passwordHash);
+      // Hash password with the user's salt
+      const passwordHash = await hashPasswordForStorage(masterPassword, new Uint8Array(salt));
+
+      // Login with the correct hash
+      const response = await apiService.login(email, passwordHash);
       
-      if (!isValid) {
-        throw new Error('Invalid credentials');
-      }
-
       // Set authenticated state
       setIsAuthenticated(true);
       setUser({
-        id: userRecord.id,
-        email: userRecord.email,
-        salt: userRecord.salt,
+        id: response.user.id,
+        email: response.user.email,
+        salt: response.user.salt!,
       });
 
       // Store session
       SecureStorage.setSession({
-        userId: userRecord.id,
-        email: userRecord.email,
+        userId: response.user.id,
+        email: response.user.email,
         isUnlocked: false,
         expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
       });
@@ -260,12 +255,12 @@ export function VaultProvider({ children }: VaultProviderProps) {
 
       setIsLoading(true);
 
-      // Get encrypted entries for current user
-      const userEntries = mockEntries.filter(e => e.userId === user.id);
+      // Get encrypted entries from API
+      const entriesResponse = await apiService.getEntries();
       
       // Decrypt entries
       const decryptedEntries: VaultEntry[] = [];
-      for (const encryptedEntry of userEntries) {
+      for (const encryptedEntry of entriesResponse.entries) {
         try {
           const decryptedData = await decryptVaultEntry(encryptedEntry.encryptedData, currentEncryptionKey);
           decryptedEntries.push({
@@ -298,17 +293,9 @@ export function VaultProvider({ children }: VaultProviderProps) {
       // Encrypt entry data
       const encryptedData = await encryptVaultEntry(entry, currentEncryptionKey);
 
-      // Create encrypted entry
-      const encryptedEntry: EncryptedVaultEntry = {
-        id: crypto.randomUUID(),
-        userId: user.id,
-        title: entry.title,
-        encryptedData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      // Create entry via API
+      await apiService.createEntry(entry.title, encryptedData);
 
-      mockEntries.push(encryptedEntry);
       await refreshEntries();
 
       toast({
@@ -329,34 +316,24 @@ export function VaultProvider({ children }: VaultProviderProps) {
 
       setIsLoading(true);
 
-      // Find existing entry
-      const entryIndex = mockEntries.findIndex(e => e.id === id && e.userId === user.id);
-      if (entryIndex === -1) throw new Error('Entry not found');
-
-      const existingEntry = mockEntries[entryIndex];
-
-      // Decrypt current data
-      const currentData = await decryptVaultEntry(existingEntry.encryptedData, currentEncryptionKey);
+      // Find existing entry in current entries
+      const existingEntry = entries.find(e => e.id === id);
+      if (!existingEntry) throw new Error('Entry not found');
 
       // Merge updates
       const updatedEntry = {
         title: updates.title ?? existingEntry.title,
-        url: updates.url ?? currentData.url,
-        username: updates.username ?? currentData.username,
-        password: updates.password ?? currentData.password,
-        notes: updates.notes ?? currentData.notes,
+        url: updates.url ?? existingEntry.url,
+        username: updates.username ?? existingEntry.username,
+        password: updates.password ?? existingEntry.password,
+        notes: updates.notes ?? existingEntry.notes,
       };
 
       // Encrypt updated data
       const encryptedData = await encryptVaultEntry(updatedEntry, currentEncryptionKey);
 
-      // Update entry
-      mockEntries[entryIndex] = {
-        ...existingEntry,
-        title: updatedEntry.title,
-        encryptedData,
-        updatedAt: new Date().toISOString(),
-      };
+      // Update entry via API
+      await apiService.updateEntry(id, updatedEntry.title, encryptedData);
 
       await refreshEntries();
 
@@ -378,12 +355,12 @@ export function VaultProvider({ children }: VaultProviderProps) {
 
       setIsLoading(true);
 
-      // Find and remove entry
-      const entryIndex = mockEntries.findIndex(e => e.id === id && e.userId === user.id);
-      if (entryIndex === -1) throw new Error('Entry not found');
+      // Find entry to get title for toast
+      const entry = entries.find(e => e.id === id);
+      const entryTitle = entry?.title || 'Entry';
 
-      const entryTitle = mockEntries[entryIndex].title;
-      mockEntries.splice(entryIndex, 1);
+      // Delete entry via API
+      await apiService.deleteEntry(id);
 
       await refreshEntries();
 
