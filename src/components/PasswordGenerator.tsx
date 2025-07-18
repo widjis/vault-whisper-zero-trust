@@ -1,12 +1,21 @@
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Copy, RefreshCw } from 'lucide-react';
+import {
+  Box,
+  Button,
+  TextField,
+  Typography,
+  Slider,
+  Switch,
+  Card,
+  CardContent,
+  CardHeader,
+  FormControlLabel,
+  IconButton,
+  InputAdornment,
+  Alert,
+} from '@mui/material';
+import { Refresh, ContentCopy } from '@mui/icons-material';
 import { generatePassword } from '@/lib/crypto';
 import { SecureStorage } from '@/lib/storage';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
@@ -14,17 +23,19 @@ import { useToast } from '@/hooks/use-toast';
 
 interface PasswordGeneratorProps {
   onPasswordGenerated?: (password: string) => void;
-  className?: string;
+  sx?: object;
 }
 
-export function PasswordGenerator({ onPasswordGenerated, className }: PasswordGeneratorProps) {
+export function PasswordGenerator({ onPasswordGenerated, sx }: PasswordGeneratorProps) {
   const { toast } = useToast();
   const settings = SecureStorage.getSettings();
   
   const [options, setOptions] = useState(settings.passwordGeneratorDefaults);
   const [generatedPassword, setGeneratedPassword] = useState('');
+  const [error, setError] = useState('');
 
   const handleGenerate = () => {
+    setError('');
     try {
       const password = generatePassword(options);
       setGeneratedPassword(password);
@@ -36,11 +47,7 @@ export function PasswordGenerator({ onPasswordGenerated, className }: PasswordGe
         passwordGeneratorDefaults: options,
       });
     } catch (error) {
-      toast({
-        title: 'Generation failed',
-        description: 'Please select at least one character type.',
-        variant: 'destructive',
-      });
+      setError('Please select at least one character type.');
     }
   };
 
@@ -54,108 +61,131 @@ export function PasswordGenerator({ onPasswordGenerated, className }: PasswordGe
         description: 'Password copied to clipboard (will clear in 30 seconds).',
       });
     } catch (error) {
-      toast({
-        title: 'Copy failed',
-        description: 'Failed to copy password to clipboard.',
-        variant: 'destructive',
-      });
+      setError('Failed to copy password to clipboard.');
     }
   };
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle>Password Generator</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Length Slider */}
-        <div className="space-y-2">
-          <Label>Length: {options.length}</Label>
-          <Slider
-            value={[options.length]}
-            onValueChange={([value]) => setOptions(prev => ({ ...prev, length: value }))}
-            min={4}
-            max={128}
-            step={1}
-            className="w-full"
-          />
-        </div>
+    <Card sx={{ ...sx }}>
+      <CardHeader 
+        title="Password Generator"
+        titleTypographyProps={{ variant: 'h6' }}
+      />
+      <CardContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {error && (
+            <Alert severity="error" onClose={() => setError('')}>
+              {error}
+            </Alert>
+          )}
 
-        {/* Character Type Options */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="uppercase">Uppercase (A-Z)</Label>
-            <Switch
-              id="uppercase"
-              checked={options.includeUppercase}
-              onCheckedChange={(checked) => 
-                setOptions(prev => ({ ...prev, includeUppercase: checked }))
-              }
+          {/* Length Slider */}
+          <Box>
+            <Typography gutterBottom>
+              Length: {options.length}
+            </Typography>
+            <Slider
+              value={options.length}
+              onChange={(_, value) => setOptions(prev => ({ ...prev, length: value as number }))}
+              min={4}
+              max={128}
+              step={1}
+              marks={[
+                { value: 4, label: '4' },
+                { value: 32, label: '32' },
+                { value: 64, label: '64' },
+                { value: 128, label: '128' },
+              ]}
+              valueLabelDisplay="auto"
             />
-          </div>
+          </Box>
 
-          <div className="flex items-center justify-between">
-            <Label htmlFor="lowercase">Lowercase (a-z)</Label>
-            <Switch
-              id="lowercase"
-              checked={options.includeLowercase}
-              onCheckedChange={(checked) => 
-                setOptions(prev => ({ ...prev, includeLowercase: checked }))
+          {/* Character Type Options */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={options.includeUppercase}
+                  onChange={(e) => 
+                    setOptions(prev => ({ ...prev, includeUppercase: e.target.checked }))
+                  }
+                />
               }
+              label="Uppercase (A-Z)"
             />
-          </div>
 
-          <div className="flex items-center justify-between">
-            <Label htmlFor="numbers">Numbers (0-9)</Label>
-            <Switch
-              id="numbers"
-              checked={options.includeNumbers}
-              onCheckedChange={(checked) => 
-                setOptions(prev => ({ ...prev, includeNumbers: checked }))
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={options.includeLowercase}
+                  onChange={(e) => 
+                    setOptions(prev => ({ ...prev, includeLowercase: e.target.checked }))
+                  }
+                />
               }
+              label="Lowercase (a-z)"
             />
-          </div>
 
-          <div className="flex items-center justify-between">
-            <Label htmlFor="special">Special Characters</Label>
-            <Switch
-              id="special"
-              checked={options.includeSpecialChars}
-              onCheckedChange={(checked) => 
-                setOptions(prev => ({ ...prev, includeSpecialChars: checked }))
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={options.includeNumbers}
+                  onChange={(e) => 
+                    setOptions(prev => ({ ...prev, includeNumbers: e.target.checked }))
+                  }
+                />
               }
+              label="Numbers (0-9)"
             />
-          </div>
-        </div>
 
-        {/* Generate Button */}
-        <Button onClick={handleGenerate} className="w-full" size="lg">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Generate Password
-        </Button>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={options.includeSpecialChars}
+                  onChange={(e) => 
+                    setOptions(prev => ({ ...prev, includeSpecialChars: e.target.checked }))
+                  }
+                />
+              }
+              label="Special Characters"
+            />
+          </Box>
 
-        {/* Generated Password */}
-        {generatedPassword && (
-          <div className="space-y-4">
-            <div className="relative">
-              <Input
+          {/* Generate Button */}
+          <Button 
+            onClick={handleGenerate} 
+            variant="contained"
+            size="large"
+            startIcon={<Refresh />}
+            fullWidth
+          >
+            Generate Password
+          </Button>
+
+          {/* Generated Password */}
+          {generatedPassword && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
                 value={generatedPassword}
-                readOnly
-                className="font-mono pr-10"
+                InputProps={{
+                  readOnly: true,
+                  style: { fontFamily: 'monospace' },
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton onClick={handleCopy} edge="end">
+                        <ContentCopy />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+                fullWidth
+                variant="outlined"
               />
-              <Button
-                size="sm"
-                variant="ghost"
-                className="absolute right-1 top-1 h-8 w-8 p-0"
-                onClick={handleCopy}
-              >
-                <Copy className="w-4 h-4" />
-              </Button>
-            </div>
-            
-            <PasswordStrengthMeter password={generatedPassword} />
-          </div>
-        )}
+              
+              <PasswordStrengthMeter password={generatedPassword} />
+            </Box>
+          )}
+        </Box>
       </CardContent>
     </Card>
   );

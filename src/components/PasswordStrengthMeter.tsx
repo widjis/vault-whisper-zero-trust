@@ -1,51 +1,68 @@
 
-import { Progress } from '@/components/ui/progress';
+import { Box, Typography, LinearProgress, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
+import { Circle } from '@mui/icons-material';
 import { calculatePasswordStrength } from '@/lib/crypto';
-import { cn } from '@/lib/utils';
 
 interface PasswordStrengthMeterProps {
   password: string;
-  className?: string;
+  sx?: object;
 }
 
-export function PasswordStrengthMeter({ password, className }: PasswordStrengthMeterProps) {
+export function PasswordStrengthMeter({ password, sx }: PasswordStrengthMeterProps) {
   const { score, feedback } = calculatePasswordStrength(password);
   
   const strengthLabels = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
-  const strengthColors = [
-    'text-red-600',
-    'text-orange-600', 
-    'text-yellow-600',
-    'text-blue-600',
-    'text-green-600'
-  ];
+  const strengthColors = ['#f44336', '#ff9800', '#ffeb3b', '#2196f3', '#4caf50'];
 
   if (!password) return null;
 
   return (
-    <div className={cn('space-y-2', className)}>
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">Password Strength</span>
-        <span className={cn('text-sm font-medium', strengthColors[score])}>
+    <Box sx={{ ...sx }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+        <Typography variant="body2" color="text.secondary">
+          Password Strength
+        </Typography>
+        <Typography 
+          variant="body2" 
+          fontWeight="medium"
+          sx={{ color: strengthColors[score] }}
+        >
           {strengthLabels[score]}
-        </span>
-      </div>
+        </Typography>
+      </Box>
       
-      <Progress 
-        value={(score + 1) * 20} 
-        className={cn('h-2', `password-strength-${score}`)}
+      <LinearProgress 
+        variant="determinate" 
+        value={(score + 1) * 20}
+        sx={{
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: 'rgba(0, 0, 0, 0.1)',
+          '& .MuiLinearProgress-bar': {
+            backgroundColor: strengthColors[score],
+            borderRadius: 4,
+          },
+        }}
       />
       
       {feedback.length > 0 && (
-        <ul className="text-xs text-muted-foreground space-y-1">
+        <List dense sx={{ mt: 1, py: 0 }}>
           {feedback.map((item, index) => (
-            <li key={index} className="flex items-center">
-              <span className="w-1 h-1 bg-muted-foreground rounded-full mr-2" />
-              {item}
-            </li>
+            <ListItem key={index} sx={{ py: 0, px: 0 }}>
+              <ListItemIcon sx={{ minWidth: 16, mr: 1 }}>
+                <Circle sx={{ fontSize: 4, color: 'text.secondary' }} />
+              </ListItemIcon>
+              <ListItemText 
+                primary={item}
+                primaryTypographyProps={{
+                  variant: 'caption',
+                  color: 'text.secondary'
+                }}
+              />
+            </ListItem>
           ))}
-        </ul>
+        </List>
       )}
-    </div>
+    </Box>
   );
 }

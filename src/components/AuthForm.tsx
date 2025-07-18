@@ -1,207 +1,307 @@
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, EyeOff, Shield, Lock } from 'lucide-react';
+import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import {
+  Box,
+  Card,
+  CardContent,
+  TextField,
+  Button,
+  Typography,
+  IconButton,
+  InputAdornment,
+  LinearProgress,
+  Alert,
+  Link,
+  Container,
+  Paper,
+  useTheme,
+  useMediaQuery,
+  Fade,
+  Chip,
+} from '@mui/material';
+import {
+  Visibility,
+  VisibilityOff,
+  Security as SecurityIcon,
+  Email as EmailIcon,
+  Lock as LockIcon,
+} from '@mui/icons-material';
 import { useVault } from '@/contexts/VaultContext';
 import { useToast } from '@/hooks/use-toast';
-import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+
+const authSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
+type AuthFormData = z.infer<typeof authSchema>;
+
+interface AuthFormProps {
+  mode: 'signin' | 'signup';
+  onToggleMode: () => void;
+}
+
+const getPasswordStrength = (password: string): number => {
+  let strength = 0;
+  if (password.length >= 8) strength += 25;
+  if (password.length >= 12) strength += 25;
+  if (/[A-Z]/.test(password)) strength += 15;
+  if (/[a-z]/.test(password)) strength += 15;
+  if (/[0-9]/.test(password)) strength += 10;
+  if (/[^A-Za-z0-9]/.test(password)) strength += 10;
+  return Math.min(strength, 100);
+};
+
+const getStrengthColor = (strength: number): 'error' | 'warning' | 'info' | 'success' => {
+  if (strength < 30) return 'error';
+  if (strength < 60) return 'warning';
+  if (strength < 80) return 'info';
+  return 'success';
+};
+
+const getStrengthText = (strength: number): string => {
+  if (strength < 30) return 'Weak';
+  if (strength < 60) return 'Fair';
+  if (strength < 80) return 'Good';
+  return 'Strong';
+};
 
 export function AuthForm() {
   const { signUp, signIn, isLoading } = useVault();
   const { toast } = useToast();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   const [activeTab, setActiveTab] = useState('signin');
   const [showPassword, setShowPassword] = useState(false);
-  const [form, setForm] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<AuthFormData>({
+    resolver: zodResolver(authSchema),
   });
 
-  const handleSubmit = async (e: React.FormEvent, type: 'signin' | 'signup') => {
-    e.preventDefault();
-    
-    if (!form.email || !form.password) {
-      toast({
-        title: 'Missing fields',
-        description: 'Please fill in all required fields.',
-        variant: 'destructive',
-      });
-      return;
-    }
+  const password = watch('password', '');
+  const passwordStrength = getPasswordStrength(password);
 
-    if (type === 'signup' && form.password !== form.confirmPassword) {
-      toast({
-        title: 'Passwords do not match',
-        description: 'Please make sure your passwords match.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+  const onSubmit = async (data: AuthFormData) => {
     try {
-      if (type === 'signup') {
-        await signUp(form.email, form.password);
+      if (activeTab === 'signup') {
+        await signUp(data.email, data.password);
+        toast({
+          title: 'Success',
+          description: 'Account created successfully',
+        });
       } else {
-        await signIn(form.email, form.password);
+        await signIn(data.email, data.password);
+        toast({
+          title: 'Success',
+          description: 'Signed in successfully',
+        });
       }
     } catch (error) {
       toast({
-        title: type === 'signup' ? 'Sign up failed' : 'Sign in failed',
-        description: error instanceof Error ? error.message : 'Please try again.',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Authentication failed',
         variant: 'destructive',
       });
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-vault-50 to-vault-100 p-4">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 vault-gradient rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <Shield className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900">SecureVault</h1>
-          <p className="text-gray-600 mt-2">Zero-knowledge password manager</p>
-          <p className="text-sm text-vault-600 mt-1">PT Merdeka Tsingshan Indonesia</p>
-        </div>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: `linear-gradient(135deg, ${theme.palette.primary.light}20 0%, ${theme.palette.secondary.light}20 100%)`,
+        p: 2,
+      }}
+    >
+      <Container maxWidth="sm">
+        <Fade in timeout={800}>
+          <Paper
+            elevation={8}
+            sx={{
+              borderRadius: 3,
+              overflow: 'hidden',
+              background: theme.palette.background.paper,
+            }}
+          >
+            {/* Header */}
+            <Box
+              sx={{
+                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+                color: 'white',
+                p: 4,
+                textAlign: 'center',
+              }}
+            >
+              <SecurityIcon sx={{ fontSize: 48, mb: 2 }} />
+              <Typography variant="h4" component="h1" fontWeight={600} gutterBottom>
+                SecureVault
+              </Typography>
+              <Typography variant="body1" sx={{ opacity: 0.9 }}>
+                Zero-knowledge password manager
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.8, mt: 1 }}>
+                PT Merdeka Tsingshan Indonesia
+              </Typography>
+            </Box>
 
-        <Card className="vault-card shadow-xl">
-          <CardHeader className="text-center pb-2">
-            <CardTitle>Welcome</CardTitle>
-            <CardDescription>
-              Your passwords are encrypted locally and never stored in plain text
-            </CardDescription>
-          </CardHeader>
-          
-          <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="signin">
-                <form onSubmit={(e) => handleSubmit(e, 'signin')} className="space-y-4">
-                  <div>
-                    <Label htmlFor="signin-email">Email</Label>
-                    <Input
-                      id="signin-email"
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="your.email@company.com"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="signin-password">Master Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="signin-password"
-                        type={showPassword ? 'text' : 'password'}
-                        value={form.password}
-                        onChange={(e) => setForm(prev => ({ ...prev, password: e.target.value }))}
-                        placeholder="Enter your master password"
-                        className="pr-10"
-                        required
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="absolute right-1 top-1 h-8 w-8 p-0"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Signing In...' : 'Sign In'}
+            {/* Form */}
+            <CardContent sx={{ p: 4 }}>
+              <Box sx={{ mb: 3 }}>
+                <Box sx={{ display: 'flex', borderRadius: 1, overflow: 'hidden', border: 1, borderColor: 'divider' }}>
+                  <Button
+                    fullWidth
+                    variant={activeTab === 'signin' ? 'contained' : 'text'}
+                    onClick={() => setActiveTab('signin')}
+                    sx={{ borderRadius: 0 }}
+                  >
+                    Sign In
                   </Button>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="signup">
-                <form onSubmit={(e) => handleSubmit(e, 'signup')} className="space-y-4">
-                  <div>
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="your.email@company.com"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="signup-password">Master Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="signup-password"
-                        type={showPassword ? 'text' : 'password'}
-                        value={form.password}
-                        onChange={(e) => setForm(prev => ({ ...prev, password: e.target.value }))}
-                        placeholder="Create a strong master password"
-                        className="pr-10"
-                        required
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="absolute right-1 top-1 h-8 w-8 p-0"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </Button>
-                    </div>
-                    {form.password && (
-                      <PasswordStrengthMeter password={form.password} className="mt-2" />
-                    )}
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
-                    <Input
-                      id="confirm-password"
-                      type="password"
-                      value={form.confirmPassword}
-                      onChange={(e) => setForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                      placeholder="Confirm your master password"
-                      required
-                    />
-                  </div>
-                  
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Creating Account...' : 'Create Account'}
+                  <Button
+                    fullWidth
+                    variant={activeTab === 'signup' ? 'contained' : 'text'}
+                    onClick={() => setActiveTab('signup')}
+                    sx={{ borderRadius: 0 }}
+                  >
+                    Sign Up
                   </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
-            
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-start space-x-2">
-                <Lock className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-800">
-                  <p className="font-medium">Zero-Knowledge Security</p>
-                  <p className="mt-1">Your master password encrypts all data locally. We never see your passwords.</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+                </Box>
+              </Box>
+
+              <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 1 }}>
+                {/* Email Field */}
+                <TextField
+                  {...register('email')}
+                  fullWidth
+                  label="Email Address"
+                  type="email"
+                  autoComplete="email"
+                  autoFocus
+                  error={!!errors.email}
+                  helperText={errors.email?.message}
+                  sx={{ mb: 3 }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <EmailIcon color="action" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                {/* Password Field */}
+                <TextField
+                  {...register('password')}
+                  fullWidth
+                  label="Master Password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete={activeTab === 'signin' ? 'current-password' : 'new-password'}
+                  error={!!errors.password}
+                  helperText={errors.password?.message}
+                  sx={{ mb: activeTab === 'signup' && password ? 2 : 3 }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <LockIcon color="action" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                {/* Password Strength Indicator */}
+                {activeTab === 'signup' && password && (
+                  <Fade in timeout={300}>
+                    <Box sx={{ mb: 3 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Password Strength:
+                        </Typography>
+                        <Chip
+                          label={getStrengthText(passwordStrength)}
+                          color={getStrengthColor(passwordStrength)}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </Box>
+                      <LinearProgress
+                        variant="determinate"
+                        value={passwordStrength}
+                        color={getStrengthColor(passwordStrength)}
+                        sx={{ height: 6, borderRadius: 3 }}
+                      />
+                      {passwordStrength < 60 && (
+                        <Alert severity="info" sx={{ mt: 2 }}>
+                          <Typography variant="body2">
+                            Use a mix of uppercase, lowercase, numbers, and special characters for a stronger password.
+                          </Typography>
+                        </Alert>
+                      )}
+                    </Box>
+                  </Fade>
+                )}
+
+                {/* Submit Button */}
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  disabled={isLoading}
+                  sx={{
+                    mt: 2,
+                    mb: 3,
+                    py: 1.5,
+                    fontSize: '1.1rem',
+                    fontWeight: 600,
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+                    '&:hover': {
+                      background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`,
+                    },
+                  }}
+                >
+                  {isLoading ? 'Loading...' : activeTab === 'signin' ? 'Sign In' : 'Create Account'}
+                </Button>
+              </Box>
+
+              <Alert severity="info" sx={{ mt: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'start' }}>
+                  <LockIcon sx={{ mr: 1, mt: 0.5, fontSize: 20 }} />
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>
+                      Zero-Knowledge Security
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      Your master password encrypts all data locally. We never see your passwords.
+                    </Typography>
+                  </Box>
+                </Box>
+              </Alert>
+            </CardContent>
+          </Paper>
+        </Fade>
+      </Container>
+    </Box>
   );
 }

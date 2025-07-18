@@ -1,25 +1,37 @@
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Copy, 
-  Edit2, 
-  Trash2, 
-  Eye, 
-  EyeOff, 
-  ExternalLink,
-  Calendar,
-  User,
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  TextField,
+  Typography,
+  IconButton,
+  InputAdornment,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogActions,
+  Grid,
+  Chip,
+  Divider,
+  Avatar,
+} from '@mui/material';
+import {
+  ContentCopy,
+  Edit,
+  Delete,
+  Visibility,
+  VisibilityOff,
+  OpenInNew,
+  CalendarToday,
+  Person,
   Lock,
-  Globe,
-  FileText
-} from 'lucide-react';
+  Language,
+  Description,
+} from '@mui/icons-material';
 import { VaultEntry as VaultEntryType } from '@/lib/crypto';
 import { SecureStorage } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
@@ -100,209 +112,219 @@ export function VaultEntry({ entry }: VaultEntryProps) {
   };
 
   return (
-    <Card className="vault-card hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Globe className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle className="text-lg">{entry.title}</CardTitle>
+    <Card sx={{ transition: 'box-shadow 0.2s', '&:hover': { boxShadow: 4 } }}>
+      <CardHeader sx={{ pb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Avatar sx={{ bgcolor: 'primary.light' }}>
+              <Language />
+            </Avatar>
+            <Box>
+              <Typography variant="h6" component="h3">
+                {entry.title}
+              </Typography>
               {entry.url && (
-                <div className="flex items-center text-sm text-muted-foreground mt-1">
-                  <Globe className="w-3 h-3 mr-1" />
-                  <span className="truncate max-w-[200px]">{entry.url}</span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-4 w-4 p-0 ml-1"
-                    onClick={() => window.open(entry.url, '_blank')}
+                <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                  <Language sx={{ fontSize: 14, mr: 0.5, color: 'text.secondary' }} />
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}
                   >
-                    <ExternalLink className="w-3 h-3" />
-                  </Button>
-                </div>
+                    {entry.url}
+                  </Typography>
+                  <IconButton
+                    size="small"
+                    onClick={() => window.open(entry.url, '_blank')}
+                    sx={{ ml: 0.5 }}
+                  >
+                    <OpenInNew sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Box>
               )}
-            </div>
-          </div>
+            </Box>
+          </Box>
           
-          <div className="flex space-x-1">
-            <Dialog open={isEditing} onOpenChange={setIsEditing}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="ghost">
-                  <Edit2 className="w-4 h-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Edit Entry</DialogTitle>
-                </DialogHeader>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="title">Title</Label>
-                      <Input
-                        id="title"
-                        value={editForm.title}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="url">URL</Label>
-                      <Input
-                        id="url"
-                        type="url"
-                        value={editForm.url}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, url: e.target.value }))}
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="username">Username</Label>
-                      <Input
-                        id="username"
-                        value={editForm.username}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, username: e.target.value }))}
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="password">Password</Label>
-                      <div className="relative">
-                        <Input
-                          id="password"
-                          type={showPassword ? 'text' : 'password'}
-                          value={editForm.password}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, password: e.target.value }))}
-                          className="pr-10"
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="absolute right-1 top-1 h-8 w-8 p-0"
-                          onClick={() => setShowPassword(!showPassword)}
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </Button>
-                      </div>
-                      {editForm.password && (
-                        <PasswordStrengthMeter password={editForm.password} className="mt-2" />
-                      )}
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="notes">Notes</Label>
-                      <Textarea
-                        id="notes"
-                        value={editForm.notes}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
-                        rows={3}
-                      />
-                    </div>
-                    
-                    <div className="flex space-x-2">
-                      <Button onClick={handleSave} className="flex-1">
-                        Save Changes
-                      </Button>
-                      <Button variant="outline" onClick={() => setIsEditing(false)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <PasswordGenerator
-                      onPasswordGenerated={(password) => 
-                        setEditForm(prev => ({ ...prev, password }))
-                      }
-                    />
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-            
-            <Button size="sm" variant="ghost" onClick={handleDelete}>
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <IconButton size="small" onClick={() => setIsEditing(true)}>
+              <Edit />
+            </IconButton>
+            <IconButton size="small" onClick={handleDelete} color="error">
+              <Delete />
+            </IconButton>
+          </Box>
+        </Box>
       </CardHeader>
       
-      <CardContent className="space-y-4">
+      {/* Edit Dialog */}
+      <Dialog open={isEditing} onClose={() => setIsEditing(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Entry</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                <TextField
+                  fullWidth
+                  label="Title"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                />
+                
+                <TextField
+                  fullWidth
+                  label="URL"
+                  type="url"
+                  value={editForm.url}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, url: e.target.value }))}
+                />
+                
+                <TextField
+                  fullWidth
+                  label="Username"
+                  value={editForm.username}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, username: e.target.value }))}
+                />
+                
+                <TextField
+                  fullWidth
+                  label="Password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={editForm.password}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, password: e.target.value }))}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+                
+                {editForm.password && (
+                  <PasswordStrengthMeter password={editForm.password} />
+                )}
+                
+                <TextField
+                  fullWidth
+                  label="Notes"
+                  multiline
+                  rows={3}
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
+                />
+              </Box>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <PasswordGenerator
+                onPasswordGenerated={(password) => 
+                  setEditForm(prev => ({ ...prev, password }))
+                }
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsEditing(false)}>Cancel</Button>
+          <Button onClick={handleSave} variant="contained">Save Changes</Button>
+        </DialogActions>
+      </Dialog>
+      
+      <CardContent sx={{ pt: 1 }}>
         {entry.username && (
-          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <User className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium">Username</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="font-mono text-sm">{entry.username}</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0"
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            p: 2,
+            bgcolor: 'action.hover',
+            borderRadius: 1,
+            mb: 2
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Person sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <Typography variant="body2" fontWeight="medium">Username</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                {entry.username}
+              </Typography>
+              <IconButton
+                size="small"
                 onClick={() => handleCopy(entry.username!, 'Username')}
               >
-                <Copy className="w-3 h-3" />
-              </Button>
-            </div>
-          </div>
+                <ContentCopy sx={{ fontSize: 14 }} />
+              </IconButton>
+            </Box>
+          </Box>
         )}
         
         {entry.password && (
-          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <Lock className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium">Password</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="font-mono text-sm">
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            p: 2,
+            bgcolor: 'action.hover',
+            borderRadius: 1,
+            mb: 2
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Lock sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <Typography variant="body2" fontWeight="medium">Password</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
                 {showPassword ? entry.password : '••••••••'}
-              </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0"
+              </Typography>
+              <IconButton
+                size="small"
                 onClick={() => setShowPassword(!showPassword)}
               >
-                {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0"
+                {showPassword ? <VisibilityOff sx={{ fontSize: 14 }} /> : <Visibility sx={{ fontSize: 14 }} />}
+              </IconButton>
+              <IconButton
+                size="small"
                 onClick={() => handleCopy(entry.password!, 'Password')}
               >
-                <Copy className="w-3 h-3" />
-              </Button>
-            </div>
-          </div>
+                <ContentCopy sx={{ fontSize: 14 }} />
+              </IconButton>
+            </Box>
+          </Box>
         )}
         
         {entry.notes && (
-          <div className="p-3 bg-muted/50 rounded-lg">
-            <div className="flex items-center space-x-2 mb-2">
-              <FileText className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium">Notes</span>
-            </div>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{entry.notes}</p>
-          </div>
+          <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1, mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Description sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <Typography variant="body2" fontWeight="medium">Notes</Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+              {entry.notes}
+            </Typography>
+          </Box>
         )}
         
-        <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-          <div className="flex items-center space-x-1">
-            <Calendar className="w-3 h-3" />
-            <span>Created: {formatDate(entry.createdAt)}</span>
-          </div>
+        <Divider sx={{ my: 2 }} />
+        
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <CalendarToday sx={{ fontSize: 12, color: 'text.secondary' }} />
+            <Typography variant="caption" color="text.secondary">
+              Created: {formatDate(entry.createdAt)}
+            </Typography>
+          </Box>
           {entry.updatedAt && entry.updatedAt !== entry.createdAt && (
-            <div className="flex items-center space-x-1">
-              <Calendar className="w-3 h-3" />
-              <span>Updated: {formatDate(entry.updatedAt)}</span>
-            </div>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <CalendarToday sx={{ fontSize: 12, color: 'text.secondary' }} />
+              <Typography variant="caption" color="text.secondary">
+                Updated: {formatDate(entry.updatedAt)}
+              </Typography>
+            </Box>
           )}
-        </div>
+        </Box>
       </CardContent>
     </Card>
   );

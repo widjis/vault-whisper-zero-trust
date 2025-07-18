@@ -1,10 +1,24 @@
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Eye, EyeOff, Shield, LogOut } from 'lucide-react';
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  TextField,
+  Typography,
+  IconButton,
+  InputAdornment,
+  Avatar,
+  Alert,
+} from '@mui/material';
+import {
+  Visibility,
+  VisibilityOff,
+  Shield,
+  Logout,
+} from '@mui/icons-material';
 import { useVault } from '@/contexts/VaultContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -14,16 +28,14 @@ export function UnlockForm() {
   
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     
     if (!password) {
-      toast({
-        title: 'Password required',
-        description: 'Please enter your master password.',
-        variant: 'destructive',
-      });
+      setError('Please enter your master password.');
       return;
     }
 
@@ -31,76 +43,104 @@ export function UnlockForm() {
       await unlockVault(password);
       setPassword('');
     } catch (error) {
-      toast({
-        title: 'Unlock failed',
-        description: 'Invalid master password. Please try again.',
-        variant: 'destructive',
-      });
+      setError('Invalid master password. Please try again.');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-vault-50 to-vault-100 p-4">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 vault-gradient rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <Shield className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900">Welcome Back</h1>
-          <p className="text-gray-600 mt-2">{user?.email}</p>
-          <p className="text-sm text-vault-600 mt-1">Enter your master password to unlock your vault</p>
-        </div>
+    <Box sx={{ width: '100%', maxWidth: 400 }}>
+      {/* Header */}
+      <Box sx={{ textAlign: 'center', mb: 4 }}>
+        <Avatar
+          sx={{
+            width: 64,
+            height: 64,
+            mx: 'auto',
+            mb: 2,
+            bgcolor: 'primary.main',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          }}
+        >
+          <Shield sx={{ fontSize: 32 }} />
+        </Avatar>
+        <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
+          Welcome Back
+        </Typography>
+        <Typography variant="body1" color="text.secondary" gutterBottom>
+          {user?.email}
+        </Typography>
+        <Typography variant="body2" color="primary.main">
+          Enter your master password to unlock your vault
+        </Typography>
+      </Box>
 
-        <Card className="vault-card shadow-xl">
-          <CardHeader className="text-center">
-            <CardTitle>Unlock Your Vault</CardTitle>
-            <CardDescription>
-              Your vault is encrypted and locked for security
-            </CardDescription>
-          </CardHeader>
-          
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <Label htmlFor="master-password">Master Password</Label>
-                <div className="relative">
-                  <Input
-                    id="master-password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your master password"
-                    className="pr-10"
-                    required
-                    autoFocus
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="absolute right-1 top-1 h-8 w-8 p-0"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </Button>
-                </div>
-              </div>
-              
-              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                {isLoading ? 'Unlocking...' : 'Unlock Vault'}
-              </Button>
-            </form>
+      <Card elevation={3}>
+        <CardHeader>
+          <Typography variant="h6" component="h2" align="center" gutterBottom>
+            Unlock Your Vault
+          </Typography>
+          <Typography variant="body2" color="text.secondary" align="center">
+            Your vault is encrypted and locked for security
+          </Typography>
+        </CardHeader>
+        
+        <CardContent>
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
             
-            <div className="mt-6 text-center">
-              <Button variant="ghost" onClick={signOut} className="text-sm">
-                <LogOut className="w-4 h-4 mr-2" />
+            <TextField
+              fullWidth
+              id="master-password"
+              label="Master Password"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your master password"
+              required
+              autoFocus
+              margin="normal"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword(!showPassword)}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={isLoading}
+              sx={{ mt: 3, mb: 2 }}
+            >
+              {isLoading ? 'Unlocking...' : 'Unlock Vault'}
+            </Button>
+            
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <Button
+                variant="text"
+                startIcon={<Logout />}
+                onClick={signOut}
+                size="small"
+              >
                 Sign out
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
+            </Box>
+          </Box>
+        </CardContent>
+       </Card>
+     </Box>
+   );
+ }

@@ -1,40 +1,16 @@
 
 # SecureVault - Zero Knowledge Password Manager
 
-A production-ready, self-hosted password vault application built for **PT Merdeka Tsingshan Indonesia** with enterprise-grade security and zero-knowledge architecture.
-
-![SecureVault Screenshot](https://via.placeholder.com/800x400/0ea5e9/ffffff?text=SecureVault+Dashboard)
+A self-hosted, zero-knowledge password vault application built for PT Merdeka Tsingshan Indonesia. This application ensures that all sensitive data is encrypted client-side before transmission, providing maximum security and privacy.
 
 ## 🔐 Security Features
 
-- **Zero-Knowledge Architecture**: All encryption happens client-side
-- **AES-256-GCM Encryption**: Industry-standard encryption for all vault data
-- **Argon2id Key Derivation**: Memory-hard password hashing with configurable parameters
-- **Client-Side Only**: Passwords never transmitted in plain text
-- **Secure Session Management**: Auto-lock with configurable timeouts
-- **Clipboard Security**: Automatic clipboard clearing after 30 seconds
-
-## 🚀 Features
-
-### Authentication & Security
-- Email and master password authentication
-- Secure user registration with salt generation
-- Session-based vault locking/unlocking
-- Automatic security timeout
-
-### Password Management
-- Add, edit, and delete password entries
-- Secure search and filtering
-- Password strength analysis
-- Built-in password generator with customizable options
-- Secure copy-to-clipboard functionality
-
-### User Experience
-- Modern, responsive React interface
-- Beautiful shadcn/ui components
-- Real-time password strength feedback
-- Comprehensive vault statistics
-- Mobile-friendly design
+- **Zero-Knowledge Architecture**: All encryption/decryption happens client-side
+- **AES-256-GCM Encryption**: Industry-standard authenticated encryption
+- **Argon2id Key Derivation**: Secure password hashing with configurable parameters
+- **Client-Side Salt Generation**: Unique salt per user for enhanced security
+- **JWT Authentication**: Secure token-based authentication
+- **No Plaintext Storage**: Server never sees unencrypted data
 
 ## 🏗️ Architecture
 

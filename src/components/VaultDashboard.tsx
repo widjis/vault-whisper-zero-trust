@@ -1,19 +1,32 @@
 
 import { useState, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Search, 
-  Lock, 
-  LogOut, 
-  Shield, 
-  Key, 
-  Globe,
-  AlertTriangle,
-  Filter
-} from 'lucide-react';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  TextField,
+  Button,
+  Grid,
+  Chip,
+  InputAdornment,
+  IconButton,
+  Paper,
+  Stack,
+  Divider,
+  useTheme,
+  useMediaQuery
+} from '@mui/material';
+import {
+  Search as SearchIcon,
+  Lock as LockIcon,
+  Logout as LogoutIcon,
+  Security as SecurityIcon,
+  VpnKey as KeyIcon,
+  Language as LanguageIcon,
+  Warning as WarningIcon,
+  Clear as ClearIcon
+} from '@mui/icons-material';
 import { useVault } from '@/contexts/VaultContext';
 import { VaultEntry } from './VaultEntry';
 import { AddEntryDialog } from './AddEntryDialog';
@@ -21,6 +34,8 @@ import { AddEntryDialog } from './AddEntryDialog';
 export function VaultDashboard() {
   const { user, entries, lockVault, signOut } = useVault();
   const [searchQuery, setSearchQuery] = useState('');
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // Filter entries based on search query
   const filteredEntries = useMemo(() => {
@@ -56,122 +71,213 @@ export function VaultDashboard() {
   }, [entries]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-vault-50 to-vault-100">
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-vault-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 vault-gradient rounded-xl flex items-center justify-center shadow-lg">
-                <Shield className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">SecureVault</h1>
-                <p className="text-sm text-gray-600">{user?.email}</p>
-              </div>
-            </div>
+      <Paper 
+        elevation={1} 
+        sx={{ 
+          position: 'sticky', 
+          top: 0, 
+          zIndex: 50,
+          borderRadius: 0,
+          bgcolor: 'background.paper',
+          borderBottom: 1,
+          borderColor: 'divider'
+        }}
+      >
+        <Box sx={{ maxWidth: '1200px', mx: 'auto', px: { xs: 2, sm: 3, lg: 4 } }}>
+          <Stack 
+            direction="row" 
+            alignItems="center" 
+            justifyContent="space-between" 
+            sx={{ height: 64 }}
+          >
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <Paper
+                elevation={3}
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                }}
+              >
+                <SecurityIcon sx={{ color: 'white', fontSize: 24 }} />
+              </Paper>
+              <Box>
+                <Typography variant="h6" fontWeight="bold">
+                  SecureVault
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {user?.email}
+                </Typography>
+              </Box>
+            </Stack>
             
-            <div className="flex items-center space-x-2">
-              <Button variant="ghost" onClick={lockVault}>
-                <Lock className="w-4 h-4 mr-2" />
-                Lock
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="outlined"
+                startIcon={<LockIcon />}
+                onClick={lockVault}
+                size={isMobile ? 'small' : 'medium'}
+              >
+                {!isMobile && 'Lock'}
               </Button>
-              <Button variant="ghost" onClick={signOut}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
+              <Button
+                variant="outlined"
+                startIcon={<LogoutIcon />}
+                onClick={signOut}
+                size={isMobile ? 'small' : 'medium'}
+              >
+                {!isMobile && 'Sign Out'}
               </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+            </Stack>
+          </Stack>
+        </Box>
+      </Paper>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <Box sx={{ maxWidth: '1200px', mx: 'auto', px: { xs: 2, sm: 3, lg: 4 }, py: 4 }}>
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card className="vault-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Entries</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center space-x-2">
-                <Key className="w-5 h-5 text-vault-600" />
-                <span className="text-2xl font-bold">{stats.totalEntries}</span>
-              </div>
-            </CardContent>
-          </Card>
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card elevation={2}>
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Total Entries
+                </Typography>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <KeyIcon color="primary" />
+                  <Typography variant="h4" fontWeight="bold">
+                    {stats.totalEntries}
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
 
-          <Card className="vault-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">With Passwords</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center space-x-2">
-                <Shield className="w-5 h-5 text-green-600" />
-                <span className="text-2xl font-bold">{stats.entriesWithPasswords}</span>
-              </div>
-            </CardContent>
-          </Card>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card elevation={2}>
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  With Passwords
+                </Typography>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <SecurityIcon sx={{ color: 'success.main' }} />
+                  <Typography variant="h4" fontWeight="bold">
+                    {stats.entriesWithPasswords}
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
 
-          <Card className="vault-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Websites</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center space-x-2">
-                <Globe className="w-5 h-5 text-blue-600" />
-                <span className="text-2xl font-bold">{stats.entriesWithUrls}</span>
-              </div>
-            </CardContent>
-          </Card>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card elevation={2}>
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Websites
+                </Typography>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <LanguageIcon sx={{ color: 'info.main' }} />
+                  <Typography variant="h4" fontWeight="bold">
+                    {stats.entriesWithUrls}
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
 
-          <Card className="vault-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Duplicates</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center space-x-2">
-                <AlertTriangle className="w-5 h-5 text-orange-600" />
-                <span className="text-2xl font-bold">{stats.duplicateCount}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card elevation={2}>
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Duplicates
+                </Typography>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <WarningIcon sx={{ color: 'warning.main' }} />
+                  <Typography variant="h4" fontWeight="bold">
+                    {stats.duplicateCount}
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
 
         {/* Search and Actions */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search your vault..."
-              className="pl-10"
-            />
-          </div>
+        <Stack 
+          direction={{ xs: 'column', sm: 'row' }} 
+          spacing={2} 
+          sx={{ mb: 4 }}
+        >
+          <TextField
+            fullWidth
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search your vault..."
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery && (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => setSearchQuery('')}
+                    edge="end"
+                  >
+                    <ClearIcon />
+                  </IconButton>
+                </InputAdornment>
+              )
+            }}
+            sx={{ flexGrow: 1 }}
+          />
           
           <AddEntryDialog />
-        </div>
+        </Stack>
 
         {/* Entries Grid */}
         {filteredEntries.length === 0 ? (
-          <Card className="vault-card text-center py-12">
+          <Card elevation={2} sx={{ textAlign: 'center', py: 8 }}>
             <CardContent>
               {entries.length === 0 ? (
                 <>
-                  <Shield className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <CardTitle className="mb-2">Your vault is empty</CardTitle>
-                  <CardDescription className="mb-6">
+                  <SecurityIcon 
+                    sx={{ 
+                      fontSize: 64, 
+                      color: 'text.secondary', 
+                      mb: 2 
+                    }} 
+                  />
+                  <Typography variant="h5" gutterBottom fontWeight="medium">
+                    Your vault is empty
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
                     Add your first password entry to get started with SecureVault
-                  </CardDescription>
+                  </Typography>
                   <AddEntryDialog />
                 </>
               ) : (
                 <>
-                  <Search className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <CardTitle className="mb-2">No entries found</CardTitle>
-                  <CardDescription>
+                  <SearchIcon 
+                    sx={{ 
+                      fontSize: 64, 
+                      color: 'text.secondary', 
+                      mb: 2 
+                    }} 
+                  />
+                  <Typography variant="h5" gutterBottom fontWeight="medium">
+                    No entries found
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
                     Try adjusting your search terms or add a new entry
-                  </CardDescription>
+                  </Typography>
                 </>
               )}
             </CardContent>
@@ -179,32 +285,45 @@ export function VaultDashboard() {
         ) : (
           <>
             {/* Results header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-2">
-                <h2 className="text-lg font-semibold">
+            <Stack 
+              direction="row" 
+              alignItems="center" 
+              justifyContent="space-between" 
+              sx={{ mb: 3 }}
+            >
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Typography variant="h6" fontWeight="medium">
                   {searchQuery ? 'Search Results' : 'Your Passwords'}
-                </h2>
-                <Badge variant="secondary">
-                  {filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'}
-                </Badge>
-              </div>
+                </Typography>
+                <Chip 
+                  label={`${filteredEntries.length} ${filteredEntries.length === 1 ? 'entry' : 'entries'}`}
+                  size="small"
+                  variant="outlined"
+                />
+              </Stack>
               
               {searchQuery && (
-                <Button variant="ghost" onClick={() => setSearchQuery('')}>
+                <Button 
+                  variant="text" 
+                  onClick={() => setSearchQuery('')}
+                  startIcon={<ClearIcon />}
+                >
                   Clear search
                 </Button>
               )}
-            </div>
+            </Stack>
 
             {/* Entries grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Grid container spacing={3}>
               {filteredEntries.map((entry) => (
-                <VaultEntry key={entry.id} entry={entry} />
+                <Grid item xs={12} lg={6} key={entry.id}>
+                  <VaultEntry entry={entry} />
+                </Grid>
               ))}
-            </div>
+            </Grid>
           </>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
